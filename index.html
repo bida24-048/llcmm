@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Signal Simulator</title>
+  <title>Signal simulator</title>
 
   <style>
     body {
@@ -11,16 +11,6 @@
       text-align: center;
       padding: 20px;
     }
-
-    input, button {
-      padding: 10px;
-      margin: 6px;
-      font-size: 14px;
-    }
-
-    .low { color: #00bfff; }
-    .med { color: #a020f0; }
-    .high { color: #ff4da6; }
 
     #lockscreen {
       position: fixed;
@@ -38,17 +28,35 @@
       margin-top: 10px;
     }
 
-    #box {
-      margin-top: 20px;
-      border-top: 1px solid #333;
-      padding-top: 15px;
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 6px 0;
     }
+
+    input {
+      padding: 8px;
+      width: 130px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 10px 15px;
+      margin: 10px;
+      cursor: pointer;
+    }
+
+    .low { color: #00bfff; }
+    .med { color: #a020f0; }
+    .high { color: #ff4da6; }
   </style>
 </head>
 
 <body>
 
-<!-- LOCKSCREEN -->
+<!-- LOCK -->
 <div id="lockscreen">
   <h2>🔐 Enter Passcode</h2>
   <input type="password" id="passcode">
@@ -56,15 +64,10 @@
   <div id="error"></div>
 </div>
 
-<h2>📊 Step Wizard Simulator</h2>
+<h2>📊 Signal Row Editor</h2>
 
-<p id="stepText">Step 1: Enter Time</p>
+<div id="table"></div>
 
-<input id="inputBox" placeholder="HH:MM or Spike">
-
-<br>
-
-<button onclick="handleStep()">Next</button>
 <button id="genBtn" onclick="generate()" disabled>Generate Predictions</button>
 
 <div id="result"></div>
@@ -79,67 +82,85 @@ function unlock(){
 
   if(p.value === PASS){
     document.getElementById("lockscreen").style.display = "none";
+    createRow();
   } else {
     document.getElementById("error").innerText = "Wrong passcode";
     p.value = "";
   }
 }
 
-/* ---------------- FLOW ---------------- */
-
-let step = 1;
-let currentTime = "";
+/* ---------------- DATA ---------------- */
 let data = [];
+let index = 0;
 
-let box = document.getElementById("inputBox");
-let stepText = document.getElementById("stepText");
+/* ---------------- CREATE ROW ---------------- */
+function createRow(){
 
-function handleStep(){
+  let table = document.getElementById("table");
 
-  let val = box.value.trim();
+  let row = document.createElement("div");
+  row.className = "row";
 
-  // STEP 1: TIME
-  if(step === 1){
+  row.innerHTML = `
+    <input id="time_${index}" placeholder="HH:MM">
+    <input id="spike_${index}" placeholder="Spike">
+  `;
 
-    if(!val.includes(":")){
-      alert("Enter valid time HH:MM");
-      return;
+  table.appendChild(row);
+
+  let timeBox = document.getElementById(`time_${index}`);
+  let spikeBox = document.getElementById(`spike_${index}`);
+
+  // auto format time
+  timeBox.addEventListener("input", function(){
+    let v = this.value.replace(/\D/g,"");
+    if(v.length >= 3){
+      this.value = v.slice(0,2) + ":" + v.slice(2,4);
+    } else {
+      this.value = v;
     }
+  });
 
-    currentTime = val;
-    box.value = "";
+  // move time → spike
+  timeBox.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+      spikeBox.focus();
+    }
+  });
 
-    stepText.innerText = "Step 2: Enter Spike";
-    step = 2;
+  // spike → next row
+  spikeBox.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+      saveRow();
+    }
+  });
+
+  timeBox.focus();
+}
+
+/* ---------------- SAVE ROW ---------------- */
+function saveRow(){
+
+  let t = document.getElementById(`time_${index}`).value;
+  let s = parseFloat(document.getElementById(`spike_${index}`).value);
+
+  if(!t || isNaN(s)){
+    alert("Enter valid time and spike");
     return;
   }
 
-  // STEP 2: SPIKE
-  if(step === 2){
+  data[index] = { time: t, spike: s };
 
-    let spike = parseFloat(val);
+  index++;
 
-    if(isNaN(spike)){
-      alert("Enter spike value");
-      return;
-    }
-
-    data.push({ time: currentTime, spike });
-
-    box.value = "";
-
-    stepText.innerText = `Step ${data.length*2 + 1}: Enter Time`;
-    step = 1;
-
-    // enable generate AFTER 10 entries
-    if(data.length === 10){
-      document.getElementById("genBtn").disabled = false;
-      stepText.innerText = "10 entries complete — click Generate";
-    }
+  if(index < 10){
+    createRow();
+  } else {
+    document.getElementById("genBtn").disabled = false;
   }
 }
 
-/* ---------------- PREDICTION ---------------- */
+/* ---------------- GENERATE ---------------- */
 
 function seededRandom(seed){
   let x = Math.sin(seed) * 10000;
@@ -161,7 +182,7 @@ function generate(){
 
   let seed = avg * 100;
 
-  let output = "<h3>📡 Next 10 Predicted Signals</h3>";
+  let out = "<h3>📡 Next 10 Signals</h3>";
 
   for(let i=1;i<=10;i++){
 
@@ -180,18 +201,13 @@ function generate(){
 
     let cls = classify(val);
 
-    output += `
-      <p class="${cls}">
-        NEXT ${i} → <b>${val.toFixed(2)}x</b>
-      </p>
-    `;
+    out += `<p class="${cls}">NEXT ${i} → <b>${val.toFixed(2)}x</b></p>`;
   }
 
-  document.getElementById("result").innerHTML = output;
+  document.getElementById("result").innerHTML = out;
 }
 
 </script>
 
 </body>
-  <h6>made by:GLM</h6>
 </html>

@@ -1,7 +1,9 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Signal Simulator</title>
+  <title>Crash Simulator</title>
+  <h6>Made by:GLM</h6>
 
   <style>
     body {
@@ -9,18 +11,38 @@
       color: white;
       font-family: Arial;
       text-align: center;
+      padding: 20px;
     }
 
-    input, button {
+    textarea {
+      width: 85%;
+      height: 180px;
+      background: #111;
+      color: white;
+      border: 1px solid #333;
       padding: 10px;
-      margin: 6px;
       font-size: 14px;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin-top: 10px;
+      cursor: pointer;
     }
 
     .low { color: #00bfff; }
     .med { color: #a020f0; }
     .high { color: #ff4da6; }
 
+    .box {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #333;
+    }
+
+    p { margin: 6px 0; }
+
+    /* LOCKSCREEN */
     #lockscreen {
       position: fixed;
       width: 100%;
@@ -35,146 +57,133 @@
       z-index: 9999;
     }
 
-    #error { color: red; }
+    #error {
+      color: red;
+      margin-top: 10px;
+    }
+
+    input[type="password"] {
+      padding: 10px;
+      font-size: 14px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 
 <body>
 
-<!-- LOCK -->
+<!-- LOCKSCREEN -->
 <div id="lockscreen">
-  <h2>🔐 Enter Passcode</h2>
-  <input type="password" id="passcode">
+  <h2>🔐Enter Passcode</h2>
+  <input type="password" id="passcode" placeholder="Enter passcode">
   <button onclick="unlock()">Unlock</button>
   <div id="error"></div>
 </div>
 
-<h2>📊 Smart Signal Generator</h2>
+<h2>📊Crash Simulator</h2>
 
-<input type="text" id="time" placeholder="Start Time (HHMM)">
+<p>Enter 10 past records (time-spike):</p>
+
+<textarea id="input">
+12:05-2
+12:05-1
+12:06-10
+12:07-3
+12:08-1
+12:09-5
+12:10-2
+12:11-1
+12:12-4
+12:13-7
+</textarea>
+
 <br>
-<input type="text" id="signalsInput" placeholder="Your signals e.g. 2,1,10">
+<button onclick="generate()">Generate Next 10</button>
 
-<br>
-<button onclick="generate()">Generate</button>
-
-<div id="result"></div>
+<div id="result" class="box"></div>
 
 <script>
 
 const PASS = "colsnist";
 
-// AUTO FORMAT TIME
-window.onload = () => {
-  document.getElementById("passcode").focus();
-
-  document.getElementById("time").addEventListener("input", function(){
-    let v = this.value.replace(/\D/g, "");
-    if(v.length >= 3){
-      this.value = v.slice(0,2) + ":" + v.slice(2,4);
-    } else {
-      this.value = v;
-    }
-  });
-};
-
-// UNLOCK
+/* ---------------- LOCK ---------------- */
 function unlock(){
-  let f = document.getElementById("passcode");
-  if(f.value === PASS){
+  let p = document.getElementById("passcode");
+
+  if(p.value === PASS){
     document.getElementById("lockscreen").style.display = "none";
   } else {
     document.getElementById("error").innerText = "Wrong passcode";
-    f.value = "";
+    p.value = "";
   }
 }
 
-// TIME PARSE
-function parseTime(t){
-  let [h,m] = t.split(":").map(Number);
-  return {h,m};
-}
+/* ---------------- CORE ---------------- */
 
-function format(h,m){
-  if(m >= 60){
-    h += Math.floor(m/60);
-    m %= 60;
-  }
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-}
-
-// RANDOM GENERATOR
-function genValue(){
-  let r = Math.random();
-
-  if(r < 0.7) return 1 + Math.random()*2;      // low
-  if(r < 0.95) return 2 + Math.random()*5;     // medium
-  return 5 + Math.random()*20;                 // high spike
-}
-
-// CLASSIFY COLOR
 function classify(v){
   if(v < 2) return "low";
   if(v < 5) return "med";
   return "high";
 }
 
-// MAIN FUNCTION
+function seededRandom(seed){
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
 function generate(){
 
-  let t = document.getElementById("time").value;
-  let raw = document.getElementById("signalsInput").value;
+  let raw = document.getElementById("input").value.trim();
+  let lines = raw.split("\n");
 
-  if(!t || !raw){
-    alert("Enter time + signals");
+  let values = [];
+
+  for(let line of lines){
+    let parts = line.split("-");
+    if(parts.length !== 2) continue;
+
+    let v = parseFloat(parts[1].trim());
+    if(!isNaN(v)) values.push(v);
+  }
+
+  if(values.length < 3){
+    alert("Enter at least 3 valid records");
     return;
   }
 
-  let time = parseTime(t);
+  let avg = values.reduce((a,b)=>a+b,0)/values.length;
+  let lastAvg = values.slice(-3).reduce((a,b)=>a+b,0)/3;
 
-  // USER INPUT SIGNALS
-  let userSignals = raw.split(",")
-    .map(x => parseFloat(x.trim()))
-    .filter(x => !isNaN(x));
-
+  let seed = avg * 100;
   let output = [];
 
-  let h = time.h;
-  let m = time.m;
+  for(let i = 1; i <= 10; i++){
 
-  // STEP 1: USER SIGNALS (seed data)
-  for(let v of userSignals){
-    let cls = classify(v);
+    let r = seededRandom(seed + i);
+    let val;
 
-    output.push(`
-      <p class="${cls}">
-        ${format(h,m)} → <b>${v.toFixed(2)}x</b>
-      </p>
-    `);
+    if(lastAvg > avg && r < 0.35){
+      val = 5 + r * 25;
+    }
+    else if(lastAvg < avg && r < 0.75){
+      val = 1 + r * 2.5;
+    }
+    else{
+      val = 2 + r * 6;
+    }
 
-    // small chance same minute clustering
-    if(Math.random() > 0.5) m++;
-  }
-
-  // STEP 2: COMPLETE TO 10 TOTAL
-  let total = 10;
-
-  for(let i = userSignals.length; i < total; i++){
-
-    if(Math.random() > 0.5) m++;
-
-    let val = genValue();
     let cls = classify(val);
 
     output.push(`
       <p class="${cls}">
-        ${format(h,m)} → <b>${val.toFixed(2)}x</b>
+        NEXT ${i} → <b>${val.toFixed(2)}x</b>
       </p>
     `);
   }
 
   document.getElementById("result").innerHTML =
-    "<h3>📡 Completed Smart Signal Set</h3>" + output.join("");
+    "<h3>📡Predicted Signals</h3>" +
+    output.join("");
 }
 
 </script>

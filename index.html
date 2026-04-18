@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Crash Simulator</title>
-  <h6>Made by:GLM</h6>
+  <title>Crash predictor</title>
+  
 
   <style>
     body {
@@ -14,46 +13,30 @@
       padding: 20px;
     }
 
-    textarea {
-      width: 85%;
-      height: 180px;
-      background: #111;
-      color: white;
-      border: 1px solid #333;
+    input, button {
       padding: 10px;
+      margin: 6px;
       font-size: 14px;
-    }
-
-    button {
-      padding: 10px 20px;
-      margin-top: 10px;
-      cursor: pointer;
     }
 
     .low { color: #00bfff; }
     .med { color: #a020f0; }
     .high { color: #ff4da6; }
 
-    .box {
+    #box {
       margin-top: 20px;
-      padding-top: 15px;
       border-top: 1px solid #333;
+      padding-top: 15px;
     }
 
-    p { margin: 6px 0; }
-
-    /* LOCKSCREEN */
     #lockscreen {
       position: fixed;
-      width: 100%;
-      height: 100%;
+      inset: 0;
       background: black;
-      top: 0;
-      left: 0;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
-      flex-direction: column;
       z-index: 9999;
     }
 
@@ -61,46 +44,32 @@
       color: red;
       margin-top: 10px;
     }
-
-    input[type="password"] {
-      padding: 10px;
-      font-size: 14px;
-      margin-top: 10px;
-    }
   </style>
 </head>
 
 <body>
 
-<!-- LOCKSCREEN -->
+<!-- LOCK -->
 <div id="lockscreen">
-  <h2>🔐Enter Passcode</h2>
-  <input type="password" id="passcode" placeholder="Enter passcode">
+  <h2>🔐 Enter Passcode</h2>
+  <input type="password" id="passcode">
   <button onclick="unlock()">Unlock</button>
   <div id="error"></div>
 </div>
 
-<h2>📊Crash Simulator</h2>
+<h2>📊 Signal Builder → Predictor</h2>
 
-<p>Enter 10 past records (time-spike):</p>
+<p id="stepText">Step 1: Enter Time</p>
 
-<textarea id="input">
-12:05-2
-12:05-1
-12:06-10
-12:07-3
-12:08-1
-12:09-5
-12:10-2
-12:11-1
-12:12-4
-12:13-7
-</textarea>
+<input id="timeInput" placeholder="HH:MM">
+<input id="spikeInput" placeholder="Spike" style="display:none;">
 
 <br>
-<button onclick="generate()">Generate Next 10</button>
 
-<div id="result" class="box"></div>
+<button onclick="nextStep()">Next Entry</button>
+<button onclick="generate()" id="genBtn" disabled>Generate Predictions</button>
+
+<div id="result"></div>
 
 <script>
 
@@ -118,7 +87,73 @@ function unlock(){
   }
 }
 
-/* ---------------- CORE ---------------- */
+/* ---------------- DATA ---------------- */
+let step = 1;
+let currentTime = "";
+let data = [];
+
+/* ---------------- INPUT FLOW ---------------- */
+
+function nextStep(){
+
+  let timeInput = document.getElementById("timeInput");
+  let spikeInput = document.getElementById("spikeInput");
+  let stepText = document.getElementById("stepText");
+
+  // STEP 1: TIME
+  if(step === 1){
+
+    if(!timeInput.value){
+      alert("Enter time");
+      return;
+    }
+
+    currentTime = timeInput.value;
+
+    timeInput.style.display = "none";
+    spikeInput.style.display = "inline-block";
+
+    stepText.innerText = "Step 2: Enter Spike";
+
+    step = 2;
+    return;
+  }
+
+  // STEP 2: SPIKE
+  if(step === 2){
+
+    let val = parseFloat(spikeInput.value);
+
+    if(isNaN(val)){
+      alert("Enter spike value");
+      return;
+    }
+
+    data.push({ time: currentTime, spike: val });
+
+    spikeInput.value = "";
+
+    timeInput.style.display = "inline-block";
+    spikeInput.style.display = "none";
+
+    stepText.innerText = `Step ${data.length + 1}: Enter Time`;
+
+    step = 1;
+
+    // enable generate after 10 entries
+    if(data.length === 10){
+      document.getElementById("genBtn").disabled = false;
+      stepText.innerText = "10 entries complete — click Generate";
+    }
+  }
+}
+
+/* ---------------- PREDICTOR ---------------- */
+
+function seededRandom(seed){
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
 
 function classify(v){
   if(v < 2) return "low";
@@ -126,42 +161,28 @@ function classify(v){
   return "high";
 }
 
-function seededRandom(seed){
-  let x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
 function generate(){
 
-  let raw = document.getElementById("input").value.trim();
-  let lines = raw.split("\n");
-
-  let values = [];
-
-  for(let line of lines){
-    let parts = line.split("-");
-    if(parts.length !== 2) continue;
-
-    let v = parseFloat(parts[1].trim());
-    if(!isNaN(v)) values.push(v);
-  }
-
-  if(values.length < 3){
-    alert("Enter at least 3 valid records");
+  if(data.length < 5){
+    alert("Need at least 5 entries");
     return;
   }
 
+  let values = data.map(d => d.spike);
+
   let avg = values.reduce((a,b)=>a+b,0)/values.length;
-  let lastAvg = values.slice(-3).reduce((a,b)=>a+b,0)/3;
+  let lastAvg = values.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3, values.length);
 
   let seed = avg * 100;
-  let output = [];
+
+  let output = "<h3>📡 Predicted Next 10 Signals</h3>";
 
   for(let i = 1; i <= 10; i++){
 
     let r = seededRandom(seed + i);
     let val;
 
+    // biased randomness using your data
     if(lastAvg > avg && r < 0.35){
       val = 5 + r * 25;
     }
@@ -174,19 +195,17 @@ function generate(){
 
     let cls = classify(val);
 
-    output.push(`
+    output += `
       <p class="${cls}">
         NEXT ${i} → <b>${val.toFixed(2)}x</b>
       </p>
-    `);
+    `;
   }
 
-  document.getElementById("result").innerHTML =
-    "<h3>📡Predicted Signals</h3>" +
-    output.join("");
+  document.getElementById("result").innerHTML = output;
 }
-
 </script>
+  <h6>made by Lizzy</h6>
 
 </body>
 </html>

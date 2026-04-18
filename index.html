@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pattern Window Simulator</title>
+  <title>Crash pattern simulator</title>
 
   <style>
     body {
@@ -65,9 +65,10 @@
 
 <!-- APP -->
 <h2>📊 Pattern Window Simulator</h2>
-<p>Enter ONE signal → get next 5 volatility windows</p>
+<p>After a big odd(e.g. 100x), make sure you stop for a while as there will be recovery!</p>
+  <p>A trail of blue odds and purple odds ,builds a pink odd</p>
 
-<input type="text" id="time" placeholder="HH:MM:SS">
+<input type="text" id="time" placeholder="HH:MM">
 <input type="number" id="spike" placeholder="Spike (e.g. 2.3)" step="0.01">
 
 <br>
@@ -108,12 +109,11 @@ document.getElementById("passcode").addEventListener("keydown", function(e){
 
 // ---------- TIME ----------
 function parseTime(t){
-  let [h,m,s] = t.split(":").map(Number);
-  return {h,m,s};
+  let [h,m] = t.split(":").map(Number);
+  return {h,m};
 }
 
-function format(h,m,s){
-  if(s >= 60){ m += Math.floor(s/60); s%=60; }
+function format(h,m){
   if(m >= 60){ h += Math.floor(m/60); m%=60; }
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }

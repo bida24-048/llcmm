@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Crash predictor</title>
-  
+  <title>Signal Simulator</title>
 
   <style>
     body {
@@ -13,10 +12,14 @@
       padding: 20px;
     }
 
-    input, button {
+    input {
       padding: 10px;
       margin: 6px;
       font-size: 14px;
+    }
+
+    button {
+      display: none; /* no buttons for flow */
     }
 
     .low { color: #00bfff; }
@@ -57,23 +60,21 @@
   <div id="error"></div>
 </div>
 
-<h2>📊 Signal Builder → Predictor</h2>
+<h2>📊 Step Wizard Signal System</h2>
 
 <p id="stepText">Step 1: Enter Time</p>
 
-<input id="timeInput" placeholder="HH:MM">
-<input id="spikeInput" placeholder="Spike" style="display:none;">
-
-<br>
-
-<button onclick="nextStep()">Next Entry</button>
-<button onclick="generate()" id="genBtn" disabled>Generate Predictions</button>
+<input id="inputBox" placeholder="HH:MM">
 
 <div id="result"></div>
 
 <script>
 
 const PASS = "colsnist";
+
+let step = 1;
+let currentTime = "";
+let data = [];
 
 /* ---------------- LOCK ---------------- */
 function unlock(){
@@ -87,31 +88,31 @@ function unlock(){
   }
 }
 
-/* ---------------- DATA ---------------- */
-let step = 1;
-let currentTime = "";
-let data = [];
+/* ---------------- STEP FLOW ---------------- */
 
-/* ---------------- INPUT FLOW ---------------- */
+let box = document.getElementById("inputBox");
+let stepText = document.getElementById("stepText");
 
-function nextStep(){
+box.addEventListener("keydown", function(e){
+  if(e.key === "Enter"){
+    handleStep();
+  }
+});
 
-  let timeInput = document.getElementById("timeInput");
-  let spikeInput = document.getElementById("spikeInput");
-  let stepText = document.getElementById("stepText");
+function handleStep(){
+
+  let val = box.value.trim();
 
   // STEP 1: TIME
   if(step === 1){
 
-    if(!timeInput.value){
-      alert("Enter time");
+    if(!val.includes(":")){
+      alert("Enter valid time HH:MM");
       return;
     }
 
-    currentTime = timeInput.value;
-
-    timeInput.style.display = "none";
-    spikeInput.style.display = "inline-block";
+    currentTime = val;
+    box.value = "";
 
     stepText.innerText = "Step 2: Enter Spike";
 
@@ -122,33 +123,31 @@ function nextStep(){
   // STEP 2: SPIKE
   if(step === 2){
 
-    let val = parseFloat(spikeInput.value);
+    let spike = parseFloat(val);
 
-    if(isNaN(val)){
-      alert("Enter spike value");
+    if(isNaN(spike)){
+      alert("Enter spike number");
       return;
     }
 
-    data.push({ time: currentTime, spike: val });
+    data.push({ time: currentTime, spike });
 
-    spikeInput.value = "";
+    box.value = "";
 
-    timeInput.style.display = "inline-block";
-    spikeInput.style.display = "none";
-
-    stepText.innerText = `Step ${data.length + 1}: Enter Time`;
-
+    // move to next entry
+    stepText.innerText = `Step ${data.length*2 + 1}: Enter Time`;
     step = 1;
 
-    // enable generate after 10 entries
+    // after 10 entries → auto generate
     if(data.length === 10){
-      document.getElementById("genBtn").disabled = false;
-      stepText.innerText = "10 entries complete — click Generate";
+      box.disabled = true;
+      stepText.innerText = "Processing predictions...";
+      generatePredictions();
     }
   }
 }
 
-/* ---------------- PREDICTOR ---------------- */
+/* ---------------- PREDICTION ENGINE ---------------- */
 
 function seededRandom(seed){
   let x = Math.sin(seed) * 10000;
@@ -161,28 +160,21 @@ function classify(v){
   return "high";
 }
 
-function generate(){
-
-  if(data.length < 5){
-    alert("Need at least 5 entries");
-    return;
-  }
+function generatePredictions(){
 
   let values = data.map(d => d.spike);
 
   let avg = values.reduce((a,b)=>a+b,0)/values.length;
-  let lastAvg = values.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3, values.length);
+  let lastAvg = values.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,values.length);
 
   let seed = avg * 100;
+  let output = "<h3>📡 Next 10 Predicted Signals</h3>";
 
-  let output = "<h3>📡 Predicted Next 10 Signals</h3>";
-
-  for(let i = 1; i <= 10; i++){
+  for(let i=1;i<=10;i++){
 
     let r = seededRandom(seed + i);
     let val;
 
-    // biased randomness using your data
     if(lastAvg > avg && r < 0.35){
       val = 5 + r * 25;
     }
@@ -203,9 +195,11 @@ function generate(){
   }
 
   document.getElementById("result").innerHTML = output;
+  stepText.innerText = "Done";
 }
+
 </script>
-  <h6>made by Lizzy</h6>
 
 </body>
+  <h6>Made By GLM</h6>
 </html>

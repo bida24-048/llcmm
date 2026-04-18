@@ -12,25 +12,15 @@
       padding: 20px;
     }
 
-    input {
+    input, button {
       padding: 10px;
       margin: 6px;
       font-size: 14px;
     }
 
-    button {
-      display: none; /* no buttons for flow */
-    }
-
     .low { color: #00bfff; }
     .med { color: #a020f0; }
     .high { color: #ff4da6; }
-
-    #box {
-      margin-top: 20px;
-      border-top: 1px solid #333;
-      padding-top: 15px;
-    }
 
     #lockscreen {
       position: fixed;
@@ -47,12 +37,18 @@
       color: red;
       margin-top: 10px;
     }
+
+    #box {
+      margin-top: 20px;
+      border-top: 1px solid #333;
+      padding-top: 15px;
+    }
   </style>
 </head>
 
 <body>
 
-<!-- LOCK -->
+<!-- LOCKSCREEN -->
 <div id="lockscreen">
   <h2>🔐 Enter Passcode</h2>
   <input type="password" id="passcode">
@@ -60,21 +56,22 @@
   <div id="error"></div>
 </div>
 
-<h2>📊 Step Wizard Signal System</h2>
+<h2>📊 Step Wizard Simulator</h2>
 
 <p id="stepText">Step 1: Enter Time</p>
 
-<input id="inputBox" placeholder="HH:MM">
+<input id="inputBox" placeholder="HH:MM or Spike">
+
+<br>
+
+<button onclick="handleStep()">Next</button>
+<button id="genBtn" onclick="generate()" disabled>Generate Predictions</button>
 
 <div id="result"></div>
 
 <script>
 
 const PASS = "colsnist";
-
-let step = 1;
-let currentTime = "";
-let data = [];
 
 /* ---------------- LOCK ---------------- */
 function unlock(){
@@ -88,16 +85,14 @@ function unlock(){
   }
 }
 
-/* ---------------- STEP FLOW ---------------- */
+/* ---------------- FLOW ---------------- */
+
+let step = 1;
+let currentTime = "";
+let data = [];
 
 let box = document.getElementById("inputBox");
 let stepText = document.getElementById("stepText");
-
-box.addEventListener("keydown", function(e){
-  if(e.key === "Enter"){
-    handleStep();
-  }
-});
 
 function handleStep(){
 
@@ -115,7 +110,6 @@ function handleStep(){
     box.value = "";
 
     stepText.innerText = "Step 2: Enter Spike";
-
     step = 2;
     return;
   }
@@ -126,7 +120,7 @@ function handleStep(){
     let spike = parseFloat(val);
 
     if(isNaN(spike)){
-      alert("Enter spike number");
+      alert("Enter spike value");
       return;
     }
 
@@ -134,20 +128,18 @@ function handleStep(){
 
     box.value = "";
 
-    // move to next entry
     stepText.innerText = `Step ${data.length*2 + 1}: Enter Time`;
     step = 1;
 
-    // after 10 entries → auto generate
+    // enable generate AFTER 10 entries
     if(data.length === 10){
-      box.disabled = true;
-      stepText.innerText = "Processing predictions...";
-      generatePredictions();
+      document.getElementById("genBtn").disabled = false;
+      stepText.innerText = "10 entries complete — click Generate";
     }
   }
 }
 
-/* ---------------- PREDICTION ENGINE ---------------- */
+/* ---------------- PREDICTION ---------------- */
 
 function seededRandom(seed){
   let x = Math.sin(seed) * 10000;
@@ -160,7 +152,7 @@ function classify(v){
   return "high";
 }
 
-function generatePredictions(){
+function generate(){
 
   let values = data.map(d => d.spike);
 
@@ -168,6 +160,7 @@ function generatePredictions(){
   let lastAvg = values.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,values.length);
 
   let seed = avg * 100;
+
   let output = "<h3>📡 Next 10 Predicted Signals</h3>";
 
   for(let i=1;i<=10;i++){
@@ -195,11 +188,10 @@ function generatePredictions(){
   }
 
   document.getElementById("result").innerHTML = output;
-  stepText.innerText = "Done";
 }
 
 </script>
 
 </body>
-  <h6>Made By GLM</h6>
+  <h6>made by:GLM</h6>
 </html>

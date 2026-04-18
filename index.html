@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Crash pattern simulator</title>
+  <title>Smart Signal Simulator</title>
 
   <style>
     body {
@@ -17,16 +17,10 @@
       font-size: 14px;
     }
 
-    .range {
-      color: #00ff88;
-      font-weight: bold;
-    }
-
     .low { color: #00bfff; }
     .med { color: #a020f0; }
     .high { color: #ff4da6; }
 
-    /* LOCKSCREEN */
     #lockscreen {
       position: fixed;
       width: 100%;
@@ -41,35 +35,25 @@
       z-index: 9999;
     }
 
-    #error {
-      color: red;
-      margin-top: 10px;
-    }
+    #error { color: red; }
   </style>
 </head>
 
 <body>
 
-<!-- LOCKSCREEN -->
+<!-- LOCK -->
 <div id="lockscreen">
   <h2>🔐 Enter Passcode</h2>
-  <input 
-    type="password" 
-    id="passcode" 
-    placeholder="Enter passcode"
-    autocomplete="off"
-  >
+  <input type="password" id="passcode">
   <button onclick="unlock()">Unlock</button>
   <div id="error"></div>
 </div>
 
-<!-- APP -->
-<h2>📊 Pattern Window Simulator</h2>
-<p>After a big odd(e.g. 100x), make sure you stop for a while as there will be recovery!</p>
-  <p>A trail of blue odds and purple odds ,builds a pink odd</p>
+<h2>📊 Smart Signal Generator</h2>
 
-<input type="text" id="time" placeholder="HH:MM">
-<input type="number" id="spike" placeholder="Spike (e.g. 2.3)" step="0.01">
+<input type="text" id="time" placeholder="Start Time (HHMM)">
+<br>
+<input type="text" id="signalsInput" placeholder="Your signals e.g. 2,1,10">
 
 <br>
 <button onclick="generate()">Generate</button>
@@ -78,95 +62,119 @@
 
 <script>
 
-// 🔐 PASSCODE (your updated one)
 const PASS = "colsnist";
 
-// Autofocus on load
+// AUTO FORMAT TIME
 window.onload = () => {
   document.getElementById("passcode").focus();
+
+  document.getElementById("time").addEventListener("input", function(){
+    let v = this.value.replace(/\D/g, "");
+    if(v.length >= 3){
+      this.value = v.slice(0,2) + ":" + v.slice(2,4);
+    } else {
+      this.value = v;
+    }
+  });
 };
 
-// Unlock function
+// UNLOCK
 function unlock(){
-  const field = document.getElementById("passcode");
-  const input = field.value.trim();
-
-  if(input === PASS){
+  let f = document.getElementById("passcode");
+  if(f.value === PASS){
     document.getElementById("lockscreen").style.display = "none";
   } else {
     document.getElementById("error").innerText = "Wrong passcode";
-    field.value = ""; // clear wrong input
-    field.focus();
+    f.value = "";
   }
 }
 
-// Press ENTER to unlock
-document.getElementById("passcode").addEventListener("keydown", function(e){
-  if(e.key === "Enter"){
-    unlock();
-  }
-});
-
-// ---------- TIME ----------
+// TIME PARSE
 function parseTime(t){
   let [h,m] = t.split(":").map(Number);
   return {h,m};
 }
 
 function format(h,m){
-  if(m >= 60){ h += Math.floor(m/60); m%=60; }
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  if(m >= 60){
+    h += Math.floor(m/60);
+    m %= 60;
+  }
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
-// ---------- LOGIC ----------
-function getVol(spike){
-  if(spike < 2) return "low";
-  if(spike < 5) return "med";
+// RANDOM GENERATOR
+function genValue(){
+  let r = Math.random();
+
+  if(r < 0.7) return 1 + Math.random()*2;      // low
+  if(r < 0.95) return 2 + Math.random()*5;     // medium
+  return 5 + Math.random()*20;                 // high spike
+}
+
+// CLASSIFY COLOR
+function classify(v){
+  if(v < 2) return "low";
+  if(v < 5) return "med";
   return "high";
 }
 
-function makeRange(vol){
-  if(vol === "low"){
-    return (1 + Math.random()*2).toFixed(1) + "x – " + (2.5 + Math.random()*3).toFixed(1) + "x";
-  }
-  if(vol === "med"){
-    return (2 + Math.random()*3).toFixed(1) + "x – " + (8 + Math.random()*6).toFixed(1) + "x";
-  }
-  return (5 + Math.random()*10).toFixed(1) + "x – " + (20 + Math.random()*40).toFixed(1) + "x";
-}
-
-// ---------- MAIN ----------
+// MAIN FUNCTION
 function generate(){
-  let t = document.getElementById("time").value;
-  let s = parseFloat(document.getElementById("spike").value);
 
-  if(!t || isNaN(s)){
-    alert("Enter valid time + spike");
+  let t = document.getElementById("time").value;
+  let raw = document.getElementById("signalsInput").value;
+
+  if(!t || !raw){
+    alert("Enter time + signals");
     return;
   }
 
   let time = parseTime(t);
-  let vol = getVol(s);
+
+  // USER INPUT SIGNALS
+  let userSignals = raw.split(",")
+    .map(x => parseFloat(x.trim()))
+    .filter(x => !isNaN(x));
+
   let output = [];
 
-  for(let i=1;i<=5;i++){
-    let h = time.h;
-    let m = time.m + (i*2);
-    let sec = time.s;
+  let h = time.h;
+  let m = time.m;
+
+  // STEP 1: USER SIGNALS (seed data)
+  for(let v of userSignals){
+    let cls = classify(v);
 
     output.push(`
-      <p class="${vol}">
-        Window ${i}: <b class="range">${makeRange(vol)}</b><br>
-        Time: ${format(h,m,sec)} – ${format(h,m+2,sec)}
+      <p class="${cls}">
+        ${format(h,m)} → <b>${v.toFixed(2)}x</b>
+      </p>
+    `);
+
+    // small chance same minute clustering
+    if(Math.random() > 0.5) m++;
+  }
+
+  // STEP 2: COMPLETE TO 10 TOTAL
+  let total = 10;
+
+  for(let i = userSignals.length; i < total; i++){
+
+    if(Math.random() > 0.5) m++;
+
+    let val = genValue();
+    let cls = classify(val);
+
+    output.push(`
+      <p class="${cls}">
+        ${format(h,m)} → <b>${val.toFixed(2)}x</b>
       </p>
     `);
   }
 
-  document.getElementById("result").innerHTML = `
-    <h3>📡 Future Windows</h3>
-    <p>Pattern: <b>${vol.toUpperCase()}</b></p>
-    ${output.join("")}
-  `;
+  document.getElementById("result").innerHTML =
+    "<h3>📡 Completed Smart Signal Set</h3>" + output.join("");
 }
 
 </script>
